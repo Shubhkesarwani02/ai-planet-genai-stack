@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Cookie
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db import crud, schemas
 from app.core.security import create_access_token, verify_token, verify_password
@@ -9,9 +9,9 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-async def get_current_user(
+def get_current_user(
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get current authenticated user from cookie"""
     credentials_exception = HTTPException(
@@ -31,17 +31,17 @@ async def get_current_user(
     except Exception:
         raise credentials_exception
     
-    user = await crud.get_user_by_id(db, user_id=user_id)
+    user = crud.get_user_by_id(db, user_id=user_id)
     if user is None:
         raise credentials_exception
     return user
 
 @router.post("/signup")
-async def signup(user: schemas.UserCreate, response: Response, db: AsyncSession = Depends(get_db)):
+def signup(user: schemas.UserCreate, response: Response, db: Session = Depends(get_db)):
     """Create new user account"""
     try:
         # Check if user already exists
-        db_user = await crud.get_user_by_email(db, email=user.email)
+        db_user = crud.get_user_by_email(db, email=user.email)
         if db_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -49,7 +49,7 @@ async def signup(user: schemas.UserCreate, response: Response, db: AsyncSession 
             )
         
         # Create new user
-        db_user = await crud.create_user(db=db, user=user)
+        db_user = crud.create_user(db=db, user=user)
         
         # Create access token
         access_token = create_access_token(data={"sub": str(db_user.id)})
@@ -83,11 +83,11 @@ async def signup(user: schemas.UserCreate, response: Response, db: AsyncSession 
         )
 
 @router.post("/login")
-async def login(user_credentials: schemas.UserLogin, response: Response, db: AsyncSession = Depends(get_db)):
+def login(user_credentials: schemas.UserLogin, response: Response, db: Session = Depends(get_db)):
     """Authenticate user and return access token"""
     try:
         # Get user by email
-        user = await crud.get_user_by_email(db, email=user_credentials.email)
+        user = crud.get_user_by_email(db, email=user_credentials.email)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -133,12 +133,12 @@ async def login(user_credentials: schemas.UserLogin, response: Response, db: Asy
         )
 
 @router.post("/logout")
-async def logout(response: Response):
+def logout(response: Response):
     """Logout user by clearing the authentication cookie"""
     response.delete_cookie(key="access_token")
     return {"message": "Logout successful"}
 
 @router.get("/me", response_model=schemas.UserResponse)
-async def get_current_user_info(current_user = Depends(get_current_user)):
+def get_current_user_info(current_user = Depends(get_current_user)):
     """Get current user information"""
     return current_user
