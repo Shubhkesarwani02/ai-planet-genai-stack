@@ -7,25 +7,33 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bot, Eye, EyeOff } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Bot, Eye, EyeOff, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { apiClient } from "@/lib/api"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      await apiClient.login(email, password)
       // Redirect to dashboard after successful login
       window.location.href = "/"
-    }, 1500)
+    } catch (err) {
+      console.error('Login error:', err)
+      setError("Invalid email or password. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -89,8 +97,21 @@ export default function LoginPage() {
                 </Link>
               </div>
 
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign in"
+                )}
               </Button>
             </form>
 
