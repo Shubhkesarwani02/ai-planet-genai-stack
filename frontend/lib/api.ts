@@ -29,11 +29,9 @@ interface ChatMessage {
 
 class ApiClient {
   private baseUrl: string;
-  private token: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
-    this.token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
@@ -43,13 +41,10 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include', // Include cookies in requests
     });
 
     if (!response.ok) {
@@ -65,10 +60,6 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
     });
-    this.token = response.access_token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', this.token!);
-    }
     return response;
   }
 
@@ -77,10 +68,6 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    this.token = response.access_token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', this.token!);
-    }
     return response;
   }
 
@@ -88,14 +75,20 @@ class ApiClient {
     return this.request('/api/auth/me');
   }
 
-  logout() {
-    this.token = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
+  async logout() {
+    return this.request('/api/auth/logout', {
+      method: 'POST',
+    });
   }
 
   // Workspaces
+  async createWorkspace(name: string, description?: string): Promise<Workspace> {
+    return this.request('/api/workspaces/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, description }),
+    });
+  }
+
   async uploadDocument(file: File, name: string, description?: string): Promise<Workspace> {
     const formData = new FormData();
     formData.append('file', file);
@@ -105,16 +98,11 @@ class ApiClient {
     }
 
     const url = `${this.baseUrl}/api/workspaces/upload-document`;
-    const headers: Record<string, string> = {};
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
 
     const response = await fetch(url, {
       method: 'POST',
-      headers,
       body: formData,
+      credentials: 'include', // Include cookies
     });
 
     if (!response.ok) {
@@ -149,7 +137,7 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({
         workspace_id: workspaceId,
-        message,
+        query: message,
       }),
     });
   }

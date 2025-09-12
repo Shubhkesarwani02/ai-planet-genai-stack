@@ -35,8 +35,13 @@ class WorkspaceBase(BaseModel):
     doc_metadata: Optional[dict] = None
 
 class WorkspaceCreate(WorkspaceBase):
+    description: Optional[str] = None
     chroma_workspace_id: str
     workflow_json: Optional[dict] = None
+
+class WorkspaceCreateSimple(BaseModel):
+    name: str
+    description: Optional[str] = None
 
 class WorkspaceUpdate(BaseModel):
     name: Optional[str] = None
@@ -45,6 +50,7 @@ class WorkspaceUpdate(BaseModel):
 class WorkspaceResponse(WorkspaceBase):
     id: str
     created_by: str
+    description: Optional[str] = None
     chroma_workspace_id: str
     workflow_json: Optional[dict] = None
     created_at: datetime

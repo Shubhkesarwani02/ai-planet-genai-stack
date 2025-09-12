@@ -1,196 +1,311 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Bot, Edit3, MessageSquare } from "lucide-react"
+import { Plus, Bot, Edit3, MessageSquare, LogOut, User, Upload, FileText } from "lucide-react"
 import Link from "next/link"
-
-interface Stack {
-  id: string
-  name: string
-  description: string
-}
+import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { useAuth } from "@/contexts/AuthContext"
+import { apiClient, type Workspace } from "@/lib/api"
 
 export default function Dashboard() {
-  const [stacks, setStacks] = useState<Stack[]>([
-    {
-      id: "1",
-      name: "Chat With AI",
-      description: "Chat with a smart AI",
-    },
-    {
-      id: "2",
-      name: "Content Writer",
-      description: "Helps you write content",
-    },
-    {
-      id: "3",
-      name: "Content Summarizer",
-      description: "Helps you summarize content",
-    },
-    {
-      id: "4",
-      name: "Information Finder",
-      description: "Helps you find relevant information",
-    },
-  ])
-
+  const { user, logout } = useAuth()
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [newStackName, setNewStackName] = useState("")
-  const [newStackDescription, setNewStackDescription] = useState("")
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [newWorkspaceName, setNewWorkspaceName] = useState("")
+  const [newWorkspaceDescription, setNewWorkspaceDescription] = useState("")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadWorkspaceName, setUploadWorkspaceName] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
-  const handleCreateStack = () => {
-    if (newStackName.trim()) {
-      const newStack: Stack = {
-        id: Date.now().toString(),
-        name: newStackName,
-        description: newStackDescription,
-      }
-      setStacks([...stacks, newStack])
-      setNewStackName("")
-      setNewStackDescription("")
+  useEffect(() => {
+    loadWorkspaces()
+  }, [])
+
+  const loadWorkspaces = async () => {
+    try {
+      setLoading(true)
+      const response = await apiClient.getWorkspaces()
+      setWorkspaces(response)
+    } catch (error) {
+      console.error('Failed to load workspaces:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateWorkspace = async () => {
+    if (!newWorkspaceName.trim()) return
+    
+    try {
+      setCreating(true)
+      await apiClient.createWorkspace(
+        newWorkspaceName.trim(),
+        newWorkspaceDescription.trim()
+      )
+      
+      // Reset form and close modal
+      setNewWorkspaceName("")
+      setNewWorkspaceDescription("")
       setIsCreateModalOpen(false)
+      
+      // Reload workspaces
+      await loadWorkspaces()
+    } catch (error) {
+      console.error('Failed to create workspace:', error)
+      alert('Failed to create workspace. Please try again.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleFileUpload = async () => {
+    if (!selectedFile || !uploadWorkspaceName.trim()) return
+    
+    try {
+      setUploading(true)
+      
+      await apiClient.uploadDocument(selectedFile, uploadWorkspaceName.trim())
+      
+      // Reset form and close modal
+      setSelectedFile(null)
+      setUploadWorkspaceName("")
+      setIsUploadModalOpen(false)
+      
+      // Reload workspaces
+      await loadWorkspaces()
+    } catch (error) {
+      console.error('Failed to upload file:', error)
+      alert('Failed to upload file. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
     }
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg">
-                <Bot className="w-5 h-5 text-white" />
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center">
+                <Bot className="h-8 w-8 text-purple-600" />
+                <h1 className="ml-2 text-xl font-bold text-gray-900">GenAI Stack</h1>
               </div>
-              <h1 className="text-xl font-semibold text-foreground">GenAI Stack</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-full">
-                <span className="text-sm font-medium">S</span>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center text-sm text-gray-600">
+                  <User className="h-4 w-4 mr-1" />
+                  {user?.email || user?.name}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Logout
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-semibold text-foreground">My Stacks</h2>
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-700 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                New Stack
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create New Stack</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={newStackName}
-                    onChange={(e) => setNewStackName(e.target.value)}
-                    placeholder="Enter stack name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newStackDescription}
-                    onChange={(e) => setNewStackDescription(e.target.value)}
-                    placeholder="Enter stack description"
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateStack} className="bg-green-600 hover:bg-green-700 text-white">
-                  Create
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome to your AI Workspace
+            </h2>
+            <p className="text-gray-600">
+              Create workspaces, upload documents, and chat with your AI assistant
+            </p>
+          </div>
 
-        {/* Empty State */}
-        {stacks.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mb-6">
-              <div className="flex items-center justify-center w-16 h-16 bg-muted rounded-full mx-auto mb-4">
-                <Bot className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">Create New Stack</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Start building your generative AI apps with our essential tools and frameworks
-              </p>
-            </div>
+          {/* Action Buttons */}
+          <div className="mb-8 flex flex-wrap gap-4">
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
               <DialogTrigger asChild>
-                <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Stack
+                <Button className="flex items-center bg-purple-600 hover:bg-purple-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Workspace
                 </Button>
               </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Workspace</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="workspace-name">Workspace Name</Label>
+                    <Input
+                      id="workspace-name"
+                      value={newWorkspaceName}
+                      onChange={(e) => setNewWorkspaceName(e.target.value)}
+                      placeholder="Enter workspace name"
+                      disabled={creating}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="workspace-description">Description (Optional)</Label>
+                    <Textarea
+                      id="workspace-description"
+                      value={newWorkspaceDescription}
+                      onChange={(e) => setNewWorkspaceDescription(e.target.value)}
+                      placeholder="Enter workspace description"
+                      disabled={creating}
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsCreateModalOpen(false)}
+                      disabled={creating}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleCreateWorkspace}
+                      disabled={creating || !newWorkspaceName.trim()}
+                    >
+                      {creating ? "Creating..." : "Create"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Document
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Upload Document</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="upload-workspace-name">Workspace Name</Label>
+                    <Input
+                      id="upload-workspace-name"
+                      value={uploadWorkspaceName}
+                      onChange={(e) => setUploadWorkspaceName(e.target.value)}
+                      placeholder="Enter workspace name for the document"
+                      disabled={uploading}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="file-upload">Select File</Label>
+                    <Input
+                      id="file-upload"
+                      type="file"
+                      accept=".pdf,.txt,.doc,.docx"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      disabled={uploading}
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsUploadModalOpen(false)}
+                      disabled={uploading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleFileUpload}
+                      disabled={uploading || !selectedFile || !uploadWorkspaceName.trim()}
+                    >
+                      {uploading ? "Uploading..." : "Upload"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
             </Dialog>
           </div>
-        )}
 
-        {/* Stacks Grid */}
-        {stacks.length > 0 && (
+          {/* Workspaces Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stacks.map((stack) => (
-              <Card key={stack.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-lg">{stack.name}</CardTitle>
-                  <CardDescription>{stack.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <Link href={`/builder/${stack.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full bg-transparent">
-                        <Edit3 className="w-4 h-4 mr-2" />
-                        Edit Stack
-                      </Button>
-                    </Link>
-                    <Link href={`/chat/${stack.id}`}>
-                      <Button size="icon" variant="outline">
-                        <MessageSquare className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Add New Stack Card */}
-            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-              <DialogTrigger asChild>
-                <Card className="border-dashed border-2 hover:border-green-600 transition-colors cursor-pointer">
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Plus className="w-8 h-8 text-muted-foreground mb-2" />
-                    <span className="text-sm font-medium text-muted-foreground">New Stack</span>
+            {loading ? (
+              // Loading skeleton
+              Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-20 bg-gray-200 rounded"></div>
                   </CardContent>
                 </Card>
-              </DialogTrigger>
-            </Dialog>
+              ))
+            ) : workspaces.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No workspaces yet</h3>
+                <p className="text-gray-600 mb-4">
+                  Create your first workspace or upload a document to get started
+                </p>
+              </div>
+            ) : (
+              workspaces.map((workspace) => (
+                <Card key={workspace.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="truncate">{workspace.name}</span>
+                      <Bot className="h-5 w-5 text-purple-600" />
+                    </CardTitle>
+                    <CardDescription className="text-sm text-gray-600">
+                      {workspace.description || "No description"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="text-xs text-gray-500">
+                        Created: {new Date(workspace.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="flex space-x-2">
+                        <Link href={`/chat/${workspace.id}`} className="flex-1">
+                          <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Chat
+                          </Button>
+                        </Link>
+                        <Link href={`/builder/${workspace.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
-        )}
-      </main>
-    </div>
+        </main>
+      </div>
+    </ProtectedRoute>
   )
 }

@@ -42,6 +42,6 @@ def get_db():
     finally:
         db.close()
 
-def close_db():
+async def close_db():
     """Close database connection"""
     engine.dispose()

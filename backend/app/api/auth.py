@@ -1,28 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.db import crud, schemas
 from app.core.security import create_access_token, verify_token, verify_password
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-security = HTTPBearer()
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get current authenticated user"""
+    """Get current authenticated user from cookie"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
     )
     
+    # Get token from cookie
+    token = request.cookies.get("access_token")
+    if not token:
+        raise credentials_exception
+    
     try:
-        user_id = verify_token(credentials.credentials)
+        user_id = verify_token(token)
         if user_id is None:
             raise credentials_exception
     except Exception:
@@ -33,8 +36,8 @@ async def get_current_user(
         raise credentials_exception
     return user
 
-@router.post("/signup", response_model=schemas.Token)
-async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
+@router.post("/signup")
+async def signup(user: schemas.UserCreate, response: Response, db: AsyncSession = Depends(get_db)):
     """Create new user account"""
     try:
         # Check if user already exists
@@ -51,7 +54,24 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
         # Create access token
         access_token = create_access_token(data={"sub": str(db_user.id)})
         
-        return {"access_token": access_token, "token_type": "bearer"}
+        # Set httpOnly cookie
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=86400  # 24 hours
+        )
+        
+        return {
+            "message": "User created successfully",
+            "user": {
+                "id": str(db_user.id),
+                "email": db_user.email,
+                "name": db_user.name
+            }
+        }
     
     except HTTPException:
         raise
@@ -62,8 +82,8 @@ async def signup(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
             detail="Internal server error"
         )
 
-@router.post("/login", response_model=schemas.Token)
-async def login(user_credentials: schemas.UserLogin, db: AsyncSession = Depends(get_db)):
+@router.post("/login")
+async def login(user_credentials: schemas.UserLogin, response: Response, db: AsyncSession = Depends(get_db)):
     """Authenticate user and return access token"""
     try:
         # Get user by email
@@ -84,7 +104,24 @@ async def login(user_credentials: schemas.UserLogin, db: AsyncSession = Depends(
         # Create access token
         access_token = create_access_token(data={"sub": str(user.id)})
         
-        return {"access_token": access_token, "token_type": "bearer"}
+        # Set httpOnly cookie
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=86400  # 24 hours
+        )
+        
+        return {
+            "message": "Login successful",
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name
+            }
+        }
     
     except HTTPException:
         raise
@@ -94,6 +131,12 @@ async def login(user_credentials: schemas.UserLogin, db: AsyncSession = Depends(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Logout user by clearing the authentication cookie"""
+    response.delete_cookie(key="access_token")
+    return {"message": "Logout successful"}
 
 @router.get("/me", response_model=schemas.UserResponse)
 async def get_current_user_info(current_user = Depends(get_current_user)):

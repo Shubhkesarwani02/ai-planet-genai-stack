@@ -160,6 +160,46 @@ async def upload_document(
             detail="Failed to upload document"
         )
 
+@router.post("/create", response_model=schemas.WorkspaceResponse)
+async def create_workspace(
+    workspace_data: schemas.WorkspaceCreateSimple,
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new workspace without document upload"""
+    try:
+        # Generate unique workspace ID and collection name
+        workspace_uuid = str(uuid.uuid4())
+        collection_name = f"workspace_{workspace_uuid}"
+        
+        # Generate default workflow
+        workflow_json = generate_default_workflow(workspace_uuid, collection_name)
+        
+        # Create workspace in database
+        workspace_create = schemas.WorkspaceCreate(
+            name=workspace_data.name,
+            description=workspace_data.description,
+            chroma_workspace_id=collection_name,
+            workflow_json=workflow_json
+        )
+        
+        workspace = await crud.create_workspace(
+            db=db,
+            workspace=workspace_create,
+            user_id=str(current_user.id)
+        )
+        
+        return workspace
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating workspace: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create workspace"
+        )
+
 @router.get("/", response_model=List[schemas.WorkspaceResponse])
 async def get_user_workspaces(
     current_user = Depends(get_current_user),
