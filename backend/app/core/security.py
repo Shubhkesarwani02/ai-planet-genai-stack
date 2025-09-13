@@ -7,7 +7,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Configure password hashing with better error handling
+try:
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except Exception as e:
+    logger.warning(f"BCrypt configuration warning: {e}")
+    # Fallback to a simpler configuration
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__default_rounds=12)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create JWT access token"""

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from typing import List
 import uuid
 import logging
@@ -84,11 +84,11 @@ def generate_default_workflow(workspace_id: str, collection_name: str) -> dict:
     }
 
 @router.post("/upload-document", response_model=schemas.DocumentUploadResponse)
-async def upload_document(
+def upload_document(
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = None,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Upload and process a document to create a new workspace"""
     try:
@@ -100,7 +100,7 @@ async def upload_document(
             )
         
         # Read file content
-        file_content = await file.read()
+        file_content = file.read()
         if len(file_content) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -123,7 +123,7 @@ async def upload_document(
             workflow_json=workflow_json
         )
         
-        workspace = await crud.create_workspace(
+        workspace = crud.create_workspace(
             db=db,
             workspace=workspace_data,
             user_id=str(current_user.id)
@@ -139,7 +139,7 @@ async def upload_document(
             )
         else:
             # Process synchronously if no background tasks available
-            await process_document_upload(
+            process_document_upload(
                 file_content,
                 file.filename,
                 workspace_uuid
@@ -161,10 +161,10 @@ async def upload_document(
         )
 
 @router.post("/create", response_model=schemas.WorkspaceResponse)
-async def create_workspace(
+def create_workspace(
     workspace_data: schemas.WorkspaceCreateSimple,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Create a new workspace without document upload"""
     try:
@@ -183,7 +183,7 @@ async def create_workspace(
             workflow_json=workflow_json
         )
         
-        workspace = await crud.create_workspace(
+        workspace = crud.create_workspace(
             db=db,
             workspace=workspace_create,
             user_id=str(current_user.id)
@@ -201,13 +201,13 @@ async def create_workspace(
         )
 
 @router.get("/", response_model=List[schemas.WorkspaceResponse])
-async def get_user_workspaces(
+def get_user_workspaces(
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get all workspaces for the current user"""
     try:
-        workspaces = await crud.get_user_workspaces(db, user_id=str(current_user.id))
+        workspaces = crud.get_user_workspaces(db, user_id=str(current_user.id))
         return workspaces
     except Exception as e:
         logger.error(f"Error getting user workspaces: {e}")
@@ -217,14 +217,14 @@ async def get_user_workspaces(
         )
 
 @router.get("/{workspace_id}", response_model=schemas.WorkspaceResponse)
-async def get_workspace(
+def get_workspace(
     workspace_id: str,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get specific workspace by ID"""
     try:
-        workspace = await crud.get_workspace_by_id(
+        workspace = crud.get_workspace_by_id(
             db, 
             workspace_id=workspace_id, 
             user_id=str(current_user.id)
@@ -247,11 +247,11 @@ async def get_workspace(
         )
 
 @router.put("/{workspace_id}/workflow", response_model=schemas.WorkspaceResponse)
-async def update_workspace_workflow(
+def update_workspace_workflow(
     workspace_id: str,
     workflow_update: schemas.WorkspaceUpdate,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Update workspace workflow JSON"""
     try:
@@ -261,7 +261,7 @@ async def update_workspace_workflow(
                 detail="Workflow JSON is required"
             )
         
-        workspace = await crud.update_workspace_workflow(
+        workspace = crud.update_workspace_workflow(
             db,
             workspace_id=workspace_id,
             workflow_json=workflow_update.workflow_json,
@@ -285,14 +285,14 @@ async def update_workspace_workflow(
         )
 
 @router.get("/{workspace_id}/info")
-async def get_workspace_info(
+def get_workspace_info(
     workspace_id: str,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get workspace information including ChromaDB collection info"""
     try:
-        workspace = await crud.get_workspace_by_id(
+        workspace = crud.get_workspace_by_id(
             db, 
             workspace_id=workspace_id, 
             user_id=str(current_user.id)

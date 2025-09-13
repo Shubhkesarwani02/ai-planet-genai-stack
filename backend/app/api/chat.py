@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from typing import List
 import logging
+import asyncio
 
 from app.db.database import get_db
 from app.db import crud, schemas
@@ -13,15 +14,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/", response_model=schemas.ChatResponse)
-async def chat_with_workspace(
+def chat_with_workspace(
     chat_request: schemas.ChatMessageCreate,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Send a message and get AI response based on workspace knowledge"""
     try:
         # Verify workspace exists and user has access
-        workspace = await crud.get_workspace_by_id(
+        workspace = crud.get_workspace_by_id(
             db,
             workspace_id=chat_request.workspace_id,
             user_id=str(current_user.id)
@@ -33,32 +34,34 @@ async def chat_with_workspace(
                 detail="Workspace not found or access denied"
             )
         
-        # Query workspace knowledge base
-        knowledge_result = await query_workspace_knowledge(
-            workspace_id=chat_request.workspace_id,
-            query=chat_request.query,
-            top_k=5,
-            embedding_provider="openai"  # Could be made configurable
-        )
-        
-        if not knowledge_result["success"]:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Knowledge retrieval failed: {knowledge_result.get('error', 'Unknown error')}"
-            )
-        
-        # Extract context chunks
-        context_chunks = [
-            chunk["text"] for chunk in knowledge_result["context_chunks"]
-        ]
-        
-        # Generate AI response
+        # Query workspace knowledge base - this might need to remain async if it's a background task
         try:
-            ai_response = await llm_service.generate_response(
+            knowledge_result = asyncio.run(query_workspace_knowledge(
+                workspace_id=chat_request.workspace_id,
+                query=chat_request.query,
+                top_k=5,
+                embedding_provider="gemini"  # Use Gemini/Google
+            ))
+        except Exception as e:
+            logger.error(f"Knowledge retrieval failed: {e}")
+            knowledge_result = {"success": False, "error": str(e)}
+        
+        if not knowledge_result.get("success", False):
+            # Fallback to no context if knowledge retrieval fails
+            context_chunks = []
+        else:
+            # Extract context chunks
+            context_chunks = [
+                chunk["text"] for chunk in knowledge_result.get("context_chunks", [])
+            ]
+        
+        # Generate AI response using Gemini
+        try:
+            ai_response = llm_service.generate_response_sync(
                 query=chat_request.query,
                 context_chunks=context_chunks,
-                provider="openai",  # Could be made configurable
-                model="gpt-4o-mini",
+                provider="google",  # Use Gemini
+                model="gemini-2.0-flash-exp",
                 temperature=0.7,
                 max_tokens=1000
             )
@@ -67,17 +70,18 @@ async def chat_with_workspace(
             ai_response = "I apologize, but I'm currently unable to generate a response. Please try again later."
         
         # Save chat log to database
-        chat_log = await crud.create_chat_log(
+        chat_log = crud.create_chat_log(
             db=db,
-            chat=chat_request,
-            response=ai_response,
-            user_id=str(current_user.id)
+            workspace_id=chat_request.workspace_id,
+            user_id=str(current_user.id),
+            query=chat_request.query,
+            response=ai_response
         )
         
         # Return response with context
         return schemas.ChatResponse(
             response=ai_response,
-            context_chunks=[chunk["text"] for chunk in knowledge_result["context_chunks"]],
+            context_chunks=context_chunks,
             chat_log=chat_log
         )
         
@@ -91,15 +95,15 @@ async def chat_with_workspace(
         )
 
 @router.get("/{workspace_id}/history", response_model=List[schemas.ChatMessageResponse])
-async def get_chat_history(
+def get_chat_history(
     workspace_id: str,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get chat history for a workspace"""
     try:
         # Verify workspace access
-        workspace = await crud.get_workspace_by_id(
+        workspace = crud.get_workspace_by_id(
             db,
             workspace_id=workspace_id,
             user_id=str(current_user.id)
@@ -112,10 +116,9 @@ async def get_chat_history(
             )
         
         # Get chat logs
-        chat_logs = await crud.get_workspace_chat_logs(
+        chat_logs = crud.get_workspace_chat_logs(
             db,
-            workspace_id=workspace_id,
-            user_id=str(current_user.id)
+            workspace_id=workspace_id
         )
         
         return chat_logs
@@ -130,17 +133,18 @@ async def get_chat_history(
         )
 
 @router.post("/test-llm")
-async def test_llm_connection(
+def test_llm_connection(
     query: str = "Hello, how are you?",
-    provider: str = "openai",
+    provider: str = "google",  # Use Gemini by default
     current_user = Depends(get_current_user)
 ):
     """Test LLM connection and generation (for debugging)"""
     try:
-        response = await llm_service.generate_response(
+        response = llm_service.generate_response_sync(
             query=query,
             context_chunks=[],
-            provider=provider
+            provider=provider,
+            model="gemini-2.0-flash-exp" if provider == "google" else None
         )
         
         return {

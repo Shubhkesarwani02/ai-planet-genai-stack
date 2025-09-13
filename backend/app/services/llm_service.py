@@ -170,22 +170,22 @@ I don't have specific context or documents to reference for this question. Pleas
             logger.error(f"Error generating Gemini response: {e}")
             raise
     
-    async def generate_response(
+    def generate_response_sync(
         self,
         query: str,
         context_chunks: List[str],
-        provider: str = "openai",
+        provider: str = "google",
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000
     ) -> str:
         """
-        Generate response using specified provider
+        Generate response using specified provider (synchronous version)
         
         Args:
             query: User query
             context_chunks: Relevant context from knowledge base
-            provider: "openai" or "gemini"
+            provider: "openai" or "google"/"gemini"
             model: Model name (optional, uses defaults)
             temperature: Sampling temperature
             max_tokens: Maximum tokens in response
@@ -193,14 +193,172 @@ I don't have specific context or documents to reference for this question. Pleas
         Returns:
             Generated response text
         """
-        if provider.lower() == "openai":
-            model = model or "gpt-4o-mini"
-            return await self.generate_openai_response(
+        if provider.lower() in ["google", "gemini"]:
+            model = model or "gemini-2.0-flash-exp"
+            return self.generate_gemini_response_sync(
                 query, context_chunks, model, temperature, max_tokens
             )
-        elif provider.lower() == "gemini":
+        elif provider.lower() == "openai":
+            model = model or "gpt-4o-mini"
+            return self.generate_openai_response_sync(
+                query, context_chunks, model, temperature, max_tokens
+            )
+        else:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
+    
+    def generate_gemini_response_sync(
+        self,
+        query: str,
+        context_chunks: List[str],
+        model: str = "gemini-2.0-flash-exp",
+        temperature: float = 0.7,
+        max_tokens: int = 1000
+    ) -> str:
+        """
+        Generate response using Google Gemini models (synchronous)
+        
+        Args:
+            query: User query
+            context_chunks: Relevant context from knowledge base
+            model: Gemini model to use
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens in response
+            
+        Returns:
+            Generated response text
+        """
+        try:
+            if not settings.gemini_api_key:
+                raise Exception("Gemini API key not configured")
+            
+            # Build context
+            context_text = "\n\n".join(context_chunks) if context_chunks else ""
+            
+            # Create prompt
+            if context_text:
+                prompt = f"""You are a helpful AI assistant. Answer the question based on the provided context.
+
+Context:
+{context_text}
+
+Question: {query}
+
+Instructions:
+- Use the context to provide an accurate answer
+- If the answer isn't in the context, say so clearly
+- Be helpful and concise
+- Cite relevant parts when applicable
+
+Answer:"""
+            else:
+                prompt = f"""Question: {query}
+
+I don't have specific context or documents to reference for this question. Please provide a helpful general response or explain what information would be needed to answer this properly."""
+            
+            model_instance = genai.GenerativeModel(
+                model_name=model,
+                generation_config={
+                    "temperature": temperature,
+                    "max_output_tokens": max_tokens,
+                }
+            )
+            response = model_instance.generate_content(prompt)
+            
+            logger.info(f"Generated Gemini response for query: {query[:100]}...")
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Error generating Gemini response: {e}")
+            raise
+    
+    def generate_openai_response_sync(
+        self,
+        query: str,
+        context_chunks: List[str],
+        model: str = "gpt-4o-mini",
+        temperature: float = 0.7,
+        max_tokens: int = 1000
+    ) -> str:
+        """
+        Generate response using OpenAI GPT models (synchronous)
+        """
+        try:
+            if not self.openai_client:
+                raise Exception("OpenAI API key not configured")
+            
+            # Build context
+            context_text = "\n\n".join(context_chunks) if context_chunks else ""
+            
+            # Create prompt
+            if context_text:
+                prompt = f"""You are a helpful AI assistant. Answer the question based on the provided context.
+
+Context:
+{context_text}
+
+Question: {query}
+
+Instructions:
+- Use the context to provide an accurate answer
+- If the answer isn't in the context, say so clearly
+- Be helpful and concise
+- Cite relevant parts when applicable
+
+Answer:"""
+            else:
+                prompt = f"""Question: {query}
+
+I don't have specific context or documents to reference for this question. Please provide a helpful general response or explain what information would be needed to answer this properly."""
+            
+            response = self.openai_client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful AI assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            
+            response_text = response.choices[0].message.content
+            logger.info(f"Generated OpenAI response for query: {query[:100]}...")
+            return response_text
+            
+        except Exception as e:
+            logger.error(f"Error generating OpenAI response: {e}")
+            raise
+
+    async def generate_response(
+        self,
+        query: str,
+        context_chunks: List[str],
+        provider: str = "google",
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000
+    ) -> str:
+        """
+        Generate response using specified provider (async version)
+        
+        Args:
+            query: User query
+            context_chunks: Relevant context from knowledge base
+            provider: "openai" or "google"/"gemini"
+            model: Model name (optional, uses defaults)
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens in response
+            
+        Returns:
+            Generated response text
+        """
+        if provider.lower() in ["google", "gemini"]:
             model = model or "gemini-2.0-flash-exp"
             return await self.generate_gemini_response(
+                query, context_chunks, model, temperature, max_tokens
+            )
+        elif provider.lower() == "openai":
+            model = model or "gpt-4o-mini"
+            return await self.generate_openai_response(
                 query, context_chunks, model, temperature, max_tokens
             )
         else:

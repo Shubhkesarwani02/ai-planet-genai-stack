@@ -10,7 +10,7 @@ def generate_uuid():
     return str(uuid.uuid4())
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "app_users"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
     email = Column(String, unique=True, index=True, nullable=False)
@@ -25,7 +25,7 @@ class Workspace(Base):
     __tablename__ = "workspaces"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
-    created_by = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    created_by = Column(UUID(as_uuid=False), ForeignKey("app_users.id"), nullable=False)
     name = Column(Text, nullable=False)
     doc_name = Column(Text, nullable=True)
     doc_metadata = Column(JSON, nullable=True)
@@ -42,7 +42,7 @@ class ChatLog(Base):
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
     workspace_id = Column(UUID(as_uuid=False), ForeignKey("workspaces.id"), nullable=False)
-    created_by = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    created_by = Column(UUID(as_uuid=False), ForeignKey("app_users.id"), nullable=False)
     query = Column(Text, nullable=False)
     response = Column(Text, nullable=False)
     created_at = Column(DateTime, default=func.now())

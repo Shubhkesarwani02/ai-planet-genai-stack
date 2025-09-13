@@ -13,7 +13,7 @@ async def process_document_upload(
     file_bytes: bytes,
     file_name: str,
     workspace_id: str,
-    embedding_provider: str = "openai",
+    embedding_provider: str = "gemini",
     chunk_size: int = 500,
     chunk_overlap: int = 50
 ) -> Dict[str, Any]:
@@ -121,7 +121,7 @@ async def query_workspace_knowledge(
     workspace_id: str,
     query: str,
     top_k: int = 5,
-    embedding_provider: str = "openai"
+    embedding_provider: str = "gemini"
 ) -> Dict[str, Any]:
     """
     Query workspace knowledge base
