@@ -44,8 +44,8 @@ def generate_default_workflow(workspace_id: str, collection_name: str) -> dict:
                 "data": {
                     "label": "LLM Engine",
                     "description": "AI reasoning and response generation",
-                    "model": "gpt-4o-mini",
-                    "provider": "openai",
+                    "model": "gemini-2.0-flash-exp",
+                    "provider": "google",
                     "temperature": 0.7,
                     "max_tokens": 1000
                 },
@@ -84,7 +84,7 @@ def generate_default_workflow(workspace_id: str, collection_name: str) -> dict:
     }
 
 @router.post("/upload-document", response_model=schemas.DocumentUploadResponse)
-def upload_document(
+async def upload_document(
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = None,
     current_user = Depends(get_current_user),
@@ -100,7 +100,7 @@ def upload_document(
             )
         
         # Read file content
-        file_content = file.read()
+        file_content = await file.read()
         if len(file_content) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

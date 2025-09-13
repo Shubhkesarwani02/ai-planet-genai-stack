@@ -68,12 +68,12 @@ export default function Dashboard() {
   }
 
   const handleFileUpload = async () => {
-    if (!selectedFile || !uploadWorkspaceName.trim()) return
+    if (!selectedFile) return
     
     try {
       setUploading(true)
       
-      await apiClient.uploadDocument(selectedFile, uploadWorkspaceName.trim())
+      await apiClient.uploadDocument(selectedFile)
       
       // Reset form and close modal
       setSelectedFile(null)
@@ -206,24 +206,17 @@ export default function Dashboard() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="upload-workspace-name">Workspace Name</Label>
-                    <Input
-                      id="upload-workspace-name"
-                      value={uploadWorkspaceName}
-                      onChange={(e) => setUploadWorkspaceName(e.target.value)}
-                      placeholder="Enter workspace name for the document"
-                      disabled={uploading}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="file-upload">Select File</Label>
+                    <Label htmlFor="file-upload">Select PDF File</Label>
                     <Input
                       id="file-upload"
                       type="file"
-                      accept=".pdf,.txt,.doc,.docx"
+                      accept=".pdf"
                       onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                       disabled={uploading}
                     />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Upload a PDF document to create a new workspace
+                    </p>
                   </div>
                   <div className="flex justify-end space-x-2">
                     <Button
@@ -235,7 +228,7 @@ export default function Dashboard() {
                     </Button>
                     <Button
                       onClick={handleFileUpload}
-                      disabled={uploading || !selectedFile || !uploadWorkspaceName.trim()}
+                      disabled={uploading || !selectedFile}
                     >
                       {uploading ? "Uploading..." : "Upload"}
                     </Button>

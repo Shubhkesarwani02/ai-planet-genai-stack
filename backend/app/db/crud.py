@@ -139,10 +139,13 @@ def delete_user(db: Session, user_id: str) -> bool:
         raise
 
 # Workspace CRUD operations
-def get_workspace_by_id(db: Session, workspace_id: str) -> Optional[models.Workspace]:
-    """Get workspace by ID"""
+def get_workspace_by_id(db: Session, workspace_id: str, user_id: str) -> Optional[models.Workspace]:
+    """Get workspace by ID, ensuring user has access"""
     try:
-        return db.query(models.Workspace).filter(models.Workspace.id == workspace_id).first()
+        return db.query(models.Workspace).filter(
+            models.Workspace.id == workspace_id,
+            models.Workspace.created_by == user_id
+        ).first()
     except SQLAlchemyError as e:
         logger.error(f"Error getting workspace by ID {workspace_id}: {e}")
         return None

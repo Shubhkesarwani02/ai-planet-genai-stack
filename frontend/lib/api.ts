@@ -1,14 +1,14 @@
 // API client for GenAI Stack backend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name?: string;
   created_at: string;
 }
 
-interface Workspace {
+export interface Workspace {
   id: string;
   user_id: string;
   name: string;
@@ -19,12 +19,18 @@ interface Workspace {
   updated_at: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   workspace_id: string;
-  user_message: string;
-  ai_response: string;
-  timestamp: string;
+  query: string;
+  response: string;
+  created_at: string;
+}
+
+export interface ChatResponse {
+  response: string;
+  context_chunks: string[];
+  chat_log: ChatMessage;
 }
 
 class ApiClient {
@@ -89,13 +95,9 @@ class ApiClient {
     });
   }
 
-  async uploadDocument(file: File, name: string, description?: string): Promise<Workspace> {
+  async uploadDocument(file: File): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('name', name);
-    if (description) {
-      formData.append('description', description);
-    }
 
     const url = `${this.baseUrl}/api/workspaces/upload-document`;
 
@@ -132,7 +134,7 @@ class ApiClient {
   }
 
   // Chat
-  async sendMessage(workspaceId: string, message: string): Promise<ChatMessage> {
+  async sendMessage(workspaceId: string, message: string): Promise<ChatResponse> {
     return this.request('/api/chat/', {
       method: 'POST',
       body: JSON.stringify({
@@ -161,6 +163,3 @@ class ApiClient {
 // Export singleton instance
 export const apiClient = new ApiClient();
 export default apiClient;
-
-// Export types
-export type { User, Workspace, ChatMessage };

@@ -8,12 +8,15 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Bot, ArrowLeft, Send, User, Loader2, Settings, Play, Save, ZoomIn, ZoomOut } from "lucide-react"
 import Link from "next/link"
+import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { apiClient, type Workspace, type ChatMessage as ApiChatMessage, type ChatResponse } from "@/lib/api"
 
 interface Message {
   id: string
   type: "user" | "assistant" | "system"
   content: string
   timestamp: Date
+  context_chunks?: string[]
 }
 
 interface ChatSidebarProps {
@@ -55,15 +58,11 @@ function ChatSidebar({ stackId }: ChatSidebarProps) {
             <div className="space-y-1">
               <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
                 <Bot className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium">OpenAI 4</span>
+                <span className="text-sm font-medium">Gemini Pro</span>
               </div>
               <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                 <Bot className="w-4 h-4 text-gray-600" />
-                <span className="text-sm">OpenAI 3.5</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                <Bot className="w-4 h-4 text-gray-600" />
-                <span className="text-sm">Azure OpenAI</span>
+                <span className="text-sm">Gemini Flash</span>
               </div>
             </div>
           </div>
@@ -101,12 +100,13 @@ export default function ChatInterface({ params }: { params: { id: string } }) {
     {
       id: "1",
       type: "system",
-      content: "Start a conversation to test your stack",
+      content: "Start a conversation to ask questions about your uploaded documents",
       timestamp: new Date(),
     },
   ])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [workspace, setWorkspace] = useState<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -116,6 +116,48 @@ export default function ChatInterface({ params }: { params: { id: string } }) {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  useEffect(() => {
+    loadWorkspace()
+    loadChatHistory()
+  }, [params.id])
+
+  const loadWorkspace = async () => {
+    try {
+      const workspaceData = await apiClient.getWorkspace(params.id)
+      setWorkspace(workspaceData)
+    } catch (error) {
+      console.error('Failed to load workspace:', error)
+    }
+  }
+
+  const loadChatHistory = async () => {
+    try {
+      const history = await apiClient.getChatHistory(params.id)
+      const chatMessages: Message[] = history.map((chat: any) => [
+        {
+          id: `${chat.id}-user`,
+          type: "user" as const,
+          content: chat.query,
+          timestamp: new Date(chat.created_at)
+        },
+        {
+          id: `${chat.id}-assistant`,
+          type: "assistant" as const,
+          content: chat.response,
+          timestamp: new Date(chat.created_at),
+          context_chunks: []
+        }
+      ]).flat()
+      
+      setMessages(prev => [
+        ...prev.filter(m => m.type === "system"),
+        ...chatMessages
+      ])
+    } catch (error) {
+      console.error('Failed to load chat history:', error)
+    }
+  }
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return
@@ -128,36 +170,34 @@ export default function ChatInterface({ params }: { params: { id: string } }) {
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const query = inputValue
     setInputValue("")
     setIsLoading(true)
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await apiClient.sendMessage(params.id, query)
+      
       const aiResponse: Message = {
+        id: response.chat_log.id,
+        type: "assistant",
+        content: response.response,
+        timestamp: new Date(response.chat_log.created_at),
+        context_chunks: response.context_chunks || []
+      }
+      
+      setMessages((prev) => [...prev, aiResponse])
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: generateMockResponse(inputValue),
+        content: "Sorry, I encountered an error processing your message. Please try again.",
         timestamp: new Date(),
       }
-      setMessages((prev) => [...prev, aiResponse])
+      setMessages((prev) => [...prev, errorResponse])
+    } finally {
       setIsLoading(false)
-    }, 2000)
-  }
-
-  const generateMockResponse = (query: string): string => {
-    if (
-      query.toLowerCase().includes("stock") ||
-      query.toLowerCase().includes("coca cola") ||
-      query.toLowerCase().includes("pepsi")
-    ) {
-      return `1. Coca-Cola (KO): Coca-Cola's stock has steadily grown over the past 5 years, thanks to diversification into non-soda beverages. The pandemic caused a temporary dip in its stock price, but it has since rebounded. Its consistent dividend payouts make it appealing to long-term investors.
-
-2. PepsiCo (PEP): PepsiCo's stock has shown stable growth, thanks to its diversified portfolio, including food and beverages, which shields it from market volatility. The company's resilience during the pandemic led to a strong recovery, and steady dividends have attracted income-focused investors.
-
-In conclusion, both companies have demonstrated resilience and steady growth over the past 5 years, appealing to growth and income-focused investors.`
     }
-
-    return `I understand you're asking about "${query}". Based on the knowledge base and web search capabilities configured in this stack, I can help you find relevant information. The system is processing your request using the OpenAI GPT-4 model with the configured parameters.`
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -168,33 +208,34 @@ In conclusion, both companies have demonstrated resilience and steady growth ove
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href={`/builder/${params.id}`}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg">
-                <Bot className="w-5 h-5 text-white" />
+    <ProtectedRoute>
+      <div className="h-screen flex flex-col bg-background">
+        {/* Header */}
+        <header className="border-b border-border bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href={`/builder/${params.id}`}>
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              </Link>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+                <h1 className="text-xl font-semibold text-foreground">GenAI Stack Chat</h1>
               </div>
-              <h1 className="text-xl font-semibold text-foreground">GenAI Stack Chat</h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-full">
+                <span className="text-sm font-medium">S</span>
+              </div>
             </div>
           </div>
+        </header>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-full">
-              <span className="text-sm font-medium">S</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <ChatSidebar stackId={params.id} />
 
@@ -291,6 +332,7 @@ In conclusion, both companies have demonstrated resilience and steady growth ove
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }
