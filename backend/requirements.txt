@@ -1,20 +1,43 @@
+# Core web framework packages
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+
+# Database packages - commented out problematic ones that require compilation
 sqlalchemy[asyncio]==2.0.23
-psycopg2-binary==2.9.7
-asyncpg==0.29.0
+# psycopg2-binary==2.9.7  # Requires Visual Studio Build Tools
+# asyncpg==0.29.0  # Requires Visual Studio Build Tools
+
+# Authentication and security
 python-multipart==0.0.6
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-pydantic[email]==2.5.0
-pydantic-settings==2.1.0
-chromadb==0.4.18
-openai==1.3.6
-google-generativeai==0.3.2
-PyMuPDF==1.23.26
-langchain==0.0.340
-langchain-text-splitters==0.0.1
-python-dotenv==1.0.0
-supabase==2.0.2
-postgrest==0.13.0
-httpx==0.25.2
+
+# Pydantic for data validation
+pydantic[email]==2.9.2
+pydantic-settings==2.6.1
+
+# Explicitly pin NumPy first to avoid build issues
+numpy>=2.1.0,<3.0.0
+
+# Vector database and AI packages (updated versions for Python 3.13 compatibility)
+chromadb>=1.0.0
+openai>=1.3.6
+google-generativeai>=0.3.2
+
+# PDF processing and text splitting
+pypdf>=3.17.4
+langchain>=0.0.340
+langchain-text-splitters>=0.0.1
+
+# Environment and HTTP utilities
+python-dotenv>=1.0.0
+httpx>=0.27.0
+
+# Supabase client
+supabase>=2.0.2
+postgrest>=0.13.0
+
+# Additional packages that might be needed
+# If you need PostgreSQL support, install these manually:
+# pip install psycopg2-binary --only-binary=all --force-reinstall
+# pip install asyncpg --only-binary=all --force-reinstall
