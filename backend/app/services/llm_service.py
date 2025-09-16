@@ -103,7 +103,7 @@ Please provide a helpful response explaining that you don't have specific inform
         self,
         query: str,
         context_chunks: List[str],
-        model: str = "gemini-2.0-flash-exp",
+        model: str = None,
         temperature: float = 0.7,
         max_tokens: int = 1000
     ) -> str:
@@ -113,7 +113,7 @@ Please provide a helpful response explaining that you don't have specific inform
         Args:
             query: User query
             context_chunks: Relevant context from knowledge base
-            model: Gemini model to use
+            model: Gemini model to use (defaults to configured default)
             temperature: Sampling temperature
             max_tokens: Maximum tokens in response
             
@@ -123,6 +123,10 @@ Please provide a helpful response explaining that you don't have specific inform
         try:
             if not settings.gemini_api_key:
                 raise Exception("Gemini API key not configured")
+            
+            # Use configured default if no model specified
+            if model is None:
+                model = settings.default_gemini_model
             
             # Build context
             context_text = "\n\n".join(context_chunks) if context_chunks else ""
@@ -174,18 +178,18 @@ I don't have specific context or documents to reference for this question. Pleas
         self,
         query: str,
         context_chunks: List[str],
-        provider: str = "google",
+        provider: str = None,  # Will use configured default
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000
     ) -> str:
         """
-        Generate response using specified provider (synchronous version)
+        Generate response using specified provider with automatic fallback (synchronous version)
         
         Args:
             query: User query
             context_chunks: Relevant context from knowledge base
-            provider: "openai" or "google"/"gemini"
+            provider: "openai" or "google"/"gemini" (defaults to configured default)
             model: Model name (optional, uses defaults)
             temperature: Sampling temperature
             max_tokens: Maximum tokens in response
@@ -193,18 +197,58 @@ I don't have specific context or documents to reference for this question. Pleas
         Returns:
             Generated response text
         """
-        if provider.lower() in ["google", "gemini"]:
-            model = model or "gemini-2.0-flash-exp"
-            return self.generate_gemini_response_sync(
-                query, context_chunks, model, temperature, max_tokens
-            )
-        elif provider.lower() == "openai":
-            model = model or "gpt-4o-mini"
-            return self.generate_openai_response_sync(
-                query, context_chunks, model, temperature, max_tokens
-            )
-        else:
-            raise ValueError(f"Unsupported LLM provider: {provider}")
+        try:
+            # Use configured default provider if none specified
+            if provider is None:
+                provider = settings.default_llm_provider
+                
+            if provider.lower() in ["google", "gemini"]:
+                model = model or settings.default_gemini_model
+                return self.generate_gemini_response_sync(
+                    query, context_chunks, model, temperature, max_tokens
+                )
+            elif provider.lower() == "openai":
+                model = model or settings.default_openai_model
+                return self.generate_openai_response_sync(
+                    query, context_chunks, model, temperature, max_tokens
+                )
+            else:
+                raise ValueError(f"Unsupported LLM provider: {provider}")
+                
+        except Exception as e:
+            # Try fallback if primary provider fails
+            error_msg = str(e).lower()
+            is_config_error = any(keyword in error_msg for keyword in ['not configured', 'api key', 'authentication'])
+            is_quota_error = any(keyword in error_msg for keyword in ['quota', 'rate limit', '429'])
+            
+            if is_config_error or is_quota_error:
+                logger.warning(f"Primary provider {provider} failed: {e}")
+                
+                # Try fallback provider
+                fallback_provider = "openai" if provider.lower() in ["google", "gemini"] else "gemini"
+                
+                try:
+                    logger.info(f"Attempting fallback to {fallback_provider}")
+                    
+                    if fallback_provider == "gemini":
+                        if not settings.gemini_api_key:
+                            raise Exception("Fallback Gemini API key not configured")
+                        return self.generate_gemini_response_sync(
+                            query, context_chunks, settings.default_gemini_model, temperature, max_tokens
+                        )
+                    else:
+                        if not self.openai_client or not settings.openai_api_key:
+                            raise Exception("Fallback OpenAI API key not configured")
+                        return self.generate_openai_response_sync(
+                            query, context_chunks, settings.default_openai_model, temperature, max_tokens
+                        )
+                        
+                except Exception as fallback_error:
+                    logger.error(f"Fallback provider {fallback_provider} also failed: {fallback_error}")
+                    return f"I apologize, but I'm currently unable to generate a response due to service limitations. Primary error: {str(e)[:100]}. Please try again later or contact support."
+            
+            # Re-raise non-provider errors
+            raise
     
     def generate_gemini_response_sync(
         self,
@@ -332,18 +376,18 @@ I don't have specific context or documents to reference for this question. Pleas
         self,
         query: str,
         context_chunks: List[str],
-        provider: str = "google",
+        provider: str = "gemini",  # Changed default to gemini
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000
     ) -> str:
         """
-        Generate response using specified provider (async version)
+        Generate response using specified provider with automatic fallback (async version)
         
         Args:
             query: User query
             context_chunks: Relevant context from knowledge base
-            provider: "openai" or "google"/"gemini"
+            provider: "openai" or "google"/"gemini" (default: gemini)
             model: Model name (optional, uses defaults)
             temperature: Sampling temperature
             max_tokens: Maximum tokens in response
@@ -351,18 +395,54 @@ I don't have specific context or documents to reference for this question. Pleas
         Returns:
             Generated response text
         """
-        if provider.lower() in ["google", "gemini"]:
-            model = model or "gemini-2.0-flash-exp"
-            return await self.generate_gemini_response(
-                query, context_chunks, model, temperature, max_tokens
-            )
-        elif provider.lower() == "openai":
-            model = model or "gpt-4o-mini"
-            return await self.generate_openai_response(
-                query, context_chunks, model, temperature, max_tokens
-            )
-        else:
-            raise ValueError(f"Unsupported LLM provider: {provider}")
+        try:
+            if provider.lower() in ["google", "gemini"]:
+                model = model or "gemini-2.0-flash-exp"
+                return await self.generate_gemini_response(
+                    query, context_chunks, model, temperature, max_tokens
+                )
+            elif provider.lower() == "openai":
+                model = model or "gpt-4o-mini"
+                return await self.generate_openai_response(
+                    query, context_chunks, model, temperature, max_tokens
+                )
+            else:
+                raise ValueError(f"Unsupported LLM provider: {provider}")
+                
+        except Exception as e:
+            # Try fallback if primary provider fails
+            error_msg = str(e).lower()
+            is_config_error = any(keyword in error_msg for keyword in ['not configured', 'api key', 'authentication'])
+            is_quota_error = any(keyword in error_msg for keyword in ['quota', 'rate limit', '429'])
+            
+            if is_config_error or is_quota_error:
+                logger.warning(f"Primary provider {provider} failed: {e}")
+                
+                # Try fallback provider
+                fallback_provider = "openai" if provider.lower() in ["google", "gemini"] else "gemini"
+                
+                try:
+                    logger.info(f"Attempting fallback to {fallback_provider}")
+                    
+                    if fallback_provider == "gemini":
+                        if not settings.gemini_api_key:
+                            raise Exception("Fallback Gemini API key not configured")
+                        return await self.generate_gemini_response(
+                            query, context_chunks, "gemini-2.0-flash-exp", temperature, max_tokens
+                        )
+                    else:
+                        if not self.openai_client or not settings.openai_api_key:
+                            raise Exception("Fallback OpenAI API key not configured")
+                        return await self.generate_openai_response(
+                            query, context_chunks, "gpt-4o-mini", temperature, max_tokens
+                        )
+                        
+                except Exception as fallback_error:
+                    logger.error(f"Fallback provider {fallback_provider} also failed: {fallback_error}")
+                    return f"I apologize, but I'm currently unable to generate a response due to service limitations. Primary error: {str(e)[:100]}. Please try again later or contact support."
+            
+            # Re-raise non-provider errors
+            raise
 
 # Global LLM service instance
 llm_service = LLMService()

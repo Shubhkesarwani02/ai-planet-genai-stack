@@ -30,6 +30,19 @@
 
 GenAI Stack is a comprehensive no-code/low-code platform that enables users to create intelligent workflows with document processing capabilities. The platform combines the power of modern AI models (OpenAI GPT, Google Gemini) with an intuitive visual workflow builder, allowing users to process documents, extract insights, and build automated workflows without writing code.
 
+**Platform Workflow (high-level):**
+
+```mermaid
+flowchart LR
+   A[User] --> B[Upload Document]
+   B --> C[Document Processing]
+   C --> D[Generate Embeddings]
+   D --> E[Store in ChromaDB]
+   E --> F[Build Workflow]
+   F --> G[Run Workflow]
+   G --> H[Results / Export]
+```
+
 ### Key Capabilities
 
 - **Visual Workflow Builder**: Drag-and-drop interface for creating complex workflows
@@ -49,6 +62,18 @@ GenAI Stack is a comprehensive no-code/low-code platform that enables users to c
 - **Workspace Management**: Multi-workspace support for organizing projects
 - **Dark/Light Theme**: Toggle between themes for better user experience
 
+**Frontend Workflow:**
+
+```mermaid
+flowchart LR
+   U[User] --> S[Login / Signup]
+   S --> W[Select Workspace]
+   W --> C[Open Workflow Canvas]
+   C --> D[Drag & Drop Nodes]
+   D --> R[Save / Run Workflow]
+   R --> V[View Results]
+```
+
 ### ⚡ Backend Features
 - **High-Performance API**: FastAPI with async/await support
 - **Database Integration**: PostgreSQL with SQLAlchemy ORM
@@ -58,11 +83,36 @@ GenAI Stack is a comprehensive no-code/low-code platform that enables users to c
 - **Security**: JWT authentication with password hashing
 - **CORS Support**: Cross-origin resource sharing for frontend integration
 
+**Backend Workflow:**
+
+```mermaid
+flowchart LR
+   CR[Client Request] --> A[Auth (JWT)]
+   A --> AR[API Route]
+   AR --> S[Service Layer]
+   S --> DB[DB / ChromaDB]
+   S --> BT[Background Task (Celery)]
+   BT --> RESP[Return Response]
+   DB --> RESP
+```
+
 ### 🤖 AI/ML Features
 - **Multi-Model Support**: OpenAI GPT-4o-mini and Google Gemini integration
 - **Embedding Generation**: Multiple embedding providers (OpenAI, Google)
 - **Contextual Responses**: RAG (Retrieval-Augmented Generation) implementation
 - **Intelligent Chunking**: Smart document segmentation for better retrieval
+
+**AI/ML Workflow:**
+
+```mermaid
+flowchart LR
+   P[PDF] --> PC[Parse & Chunk]
+   PC --> CN[Clean / Text Normalize]
+   CN --> GE[Generate Embeddings]
+   GE --> Q[Query LLMs (OpenAI / Gemini)]
+   Q --> AG[Aggregate & Rank]
+   AG --> RR[Return Contextual Response]
+```
 
 ## 🏗️ Architecture
 
@@ -252,12 +302,17 @@ The frontend application will be available at `http://localhost:3000`
 
 ### Basic Workflow
 
-1. **Sign Up/Login**: Create an account or log in to existing account
-2. **Create Workspace**: Set up a new workspace for your project
-3. **Upload Documents**: Upload PDF documents for processing
-4. **Build Workflows**: Use the visual workflow builder to create AI-powered workflows
-5. **Chat & Query**: Interact with your documents through the chat interface
-6. **Export Results**: Save and export your workflow results
+**End-to-end Basic Workflow:**
+
+```mermaid
+flowchart LR
+   SU[Sign Up / Login] --> CW[Create Workspace]
+   CW --> UD[Upload Document]
+   UD --> PE[Process & Embed]
+   PE --> BW[Build Workflow]
+   BW --> RQ[Run / Query]
+   RQ --> ES[Export / Save Results]
+```
 
 ## 📚 API Documentation
 

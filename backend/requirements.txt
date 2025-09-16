@@ -13,9 +13,10 @@ psycopg2-binary>=2.9.9; platform_system != "Windows"
 python-multipart==0.0.6
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt<4.0.0
 
 # Pydantic for data validation
-pydantic[email]==2.9.2
+pydantic[email]>=2.7.0,<3.0.0
 pydantic-settings==2.6.1
 
 # Numerical computing - compatible with Python 3.13

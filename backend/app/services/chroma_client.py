@@ -55,17 +55,17 @@ class ChromaDBClient:
         self, 
         collection_name: str, 
         documents: List[str], 
-        embeddings: List[List[float]], 
+        embeddings: Optional[List[List[float]]] = None, 
         metadatas: Optional[List[Dict[str, Any]]] = None,
         ids: Optional[List[str]] = None
     ) -> bool:
         """
-        Add documents to a collection
+        Add documents to a collection (with or without embeddings)
         
         Args:
             collection_name: Name of the collection
             documents: List of document texts
-            embeddings: List of embedding vectors
+            embeddings: Optional list of embedding vectors (None for text-only storage)
             metadatas: Optional list of metadata dictionaries
             ids: Optional list of document IDs
             
@@ -84,14 +84,24 @@ class ChromaDBClient:
                 metadatas = [{"index": i} for i in range(len(documents))]
             
             # Add documents to collection
-            collection.add(
-                ids=ids,
-                documents=documents,
-                embeddings=embeddings,
-                metadatas=metadatas
-            )
+            if embeddings is not None:
+                # With embeddings
+                collection.add(
+                    ids=ids,
+                    documents=documents,
+                    embeddings=embeddings,
+                    metadatas=metadatas
+                )
+                logger.info(f"Added {len(documents)} documents with embeddings to collection {collection_name}")
+            else:
+                # Without embeddings (text-only for later text search)
+                collection.add(
+                    ids=ids,
+                    documents=documents,
+                    metadatas=metadatas
+                )
+                logger.info(f"Added {len(documents)} documents without embeddings to collection {collection_name}")
             
-            logger.info(f"Added {len(documents)} documents to collection {collection_name}")
             return True
             
         except Exception as e:

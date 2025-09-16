@@ -127,36 +127,53 @@ function LLMConfig({ node, onUpdate }: { node: Node; onUpdate: (data: any) => vo
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="llm-model">Model</Label>
-          <Select value={node.data.model} onValueChange={(value) => onUpdate({ model: value })}>
+          <Label htmlFor="llm-provider">Provider</Label>
+          <Select 
+            value={node.data.provider || "gemini"} 
+            onValueChange={(value) => onUpdate({ provider: value })}
+          >
             <SelectTrigger>
-              <SelectValue placeholder="Select model" />
+              <SelectValue placeholder="Select provider" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="GPT 4o-Mini">GPT 4o-Mini</SelectItem>
-              <SelectItem value="GPT-4">GPT-4</SelectItem>
-              <SelectItem value="GPT-3.5-Turbo">GPT-3.5-Turbo</SelectItem>
-              <SelectItem value="Claude-3">Claude-3</SelectItem>
+              <SelectItem value="gemini">Google Gemini</SelectItem>
+              <SelectItem value="openai">OpenAI</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div>
-          <Label htmlFor="llm-api-key">API Key</Label>
-          <Input
-            id="llm-api-key"
-            type="password"
-            value={node.data.apiKey || ""}
-            onChange={(e) => onUpdate({ apiKey: e.target.value })}
-            placeholder="Enter your API key"
-          />
+          <Label htmlFor="llm-model">Model</Label>
+          <Select 
+            value={node.data.model || "gemini-2.0-flash-exp"} 
+            onValueChange={(value) => onUpdate({ model: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select model" />
+            </SelectTrigger>
+            <SelectContent>
+              {(node.data.provider === "openai" || !node.data.provider) ? (
+                <>
+                  <SelectItem value="gpt-4o-mini">GPT 4o-Mini</SelectItem>
+                  <SelectItem value="gpt-4">GPT-4</SelectItem>
+                  <SelectItem value="gpt-3.5-turbo">GPT-3.5-Turbo</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash</SelectItem>
+                  <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                  <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <Label htmlFor="llm-prompt">System Prompt</Label>
           <Textarea
             id="llm-prompt"
-            value={node.data.prompt || "You are a helpful assistant."}
+            value={node.data.prompt || "You are a helpful AI assistant that answers questions based on the provided context from documents."}
             onChange={(e) => onUpdate({ prompt: e.target.value })}
             placeholder="Enter system prompt"
             rows={4}
@@ -164,13 +181,13 @@ function LLMConfig({ node, onUpdate }: { node: Node; onUpdate: (data: any) => vo
         </div>
 
         <div>
-          <Label htmlFor="llm-temperature">Temperature: {node.data.temperature || 0.75}</Label>
+          <Label htmlFor="llm-temperature">Temperature: {node.data.temperature || 0.7}</Label>
           <Slider
             id="llm-temperature"
             min={0}
             max={2}
             step={0.1}
-            value={[node.data.temperature || 0.75]}
+            value={[node.data.temperature || 0.7]}
             onValueChange={(value) => onUpdate({ temperature: value[0] })}
             className="mt-2"
           />
@@ -219,27 +236,57 @@ function KnowledgeBaseConfig({ node, onUpdate }: { node: Node; onUpdate: (data: 
         </div>
 
         <div>
-          <Label htmlFor="kb-embedding-model">Embedding Model</Label>
-          <Select value={node.data.embeddingModel} onValueChange={(value) => onUpdate({ embeddingModel: value })}>
+          <Label htmlFor="kb-embedding-provider">Embedding Provider</Label>
+          <Select 
+            value={node.data.embeddingProvider || "gemini"} 
+            onValueChange={(value) => onUpdate({ embeddingProvider: value })}
+          >
             <SelectTrigger>
-              <SelectValue placeholder="Select embedding model" />
+              <SelectValue placeholder="Select embedding provider" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="text-embedding-3-large">text-embedding-3-large</SelectItem>
-              <SelectItem value="text-embedding-3-small">text-embedding-3-small</SelectItem>
-              <SelectItem value="text-embedding-ada-002">text-embedding-ada-002</SelectItem>
+              <SelectItem value="gemini">Google Gemini</SelectItem>
+              <SelectItem value="openai">OpenAI</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div>
-          <Label htmlFor="kb-api-key">API Key</Label>
+          <Label htmlFor="kb-embedding-model">Embedding Model</Label>
+          <Select 
+            value={node.data.embeddingModel || "models/embedding-001"} 
+            onValueChange={(value) => onUpdate({ embeddingModel: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select embedding model" />
+            </SelectTrigger>
+            <SelectContent>
+              {(node.data.embeddingProvider === "openai") ? (
+                <>
+                  <SelectItem value="text-embedding-3-large">text-embedding-3-large</SelectItem>
+                  <SelectItem value="text-embedding-3-small">text-embedding-3-small</SelectItem>
+                  <SelectItem value="text-embedding-ada-002">text-embedding-ada-002</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="models/embedding-001">Gemini Embedding 001</SelectItem>
+                  <SelectItem value="models/text-embedding-004">Gemini Text Embedding 004</SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="kb-top-k">Number of Results (Top K)</Label>
           <Input
-            id="kb-api-key"
-            type="password"
-            value={node.data.apiKey || ""}
-            onChange={(e) => onUpdate({ apiKey: e.target.value })}
-            placeholder="Enter your API key"
+            id="kb-top-k"
+            type="number"
+            value={node.data.topK || 5}
+            onChange={(e) => onUpdate({ topK: Number.parseInt(e.target.value) })}
+            placeholder="5"
+            min="1"
+            max="20"
           />
         </div>
 
@@ -248,9 +295,9 @@ function KnowledgeBaseConfig({ node, onUpdate }: { node: Node; onUpdate: (data: 
           <Input
             id="kb-chunk-size"
             type="number"
-            value={node.data.chunkSize || 1000}
+            value={node.data.chunkSize || 800}
             onChange={(e) => onUpdate({ chunkSize: Number.parseInt(e.target.value) })}
-            placeholder="1000"
+            placeholder="800"
           />
         </div>
 
@@ -259,9 +306,9 @@ function KnowledgeBaseConfig({ node, onUpdate }: { node: Node; onUpdate: (data: 
           <Input
             id="kb-overlap"
             type="number"
-            value={node.data.chunkOverlap || 200}
+            value={node.data.chunkOverlap || 100}
             onChange={(e) => onUpdate({ chunkOverlap: Number.parseInt(e.target.value) })}
-            placeholder="200"
+            placeholder="100"
           />
         </div>
 
@@ -276,6 +323,15 @@ function KnowledgeBaseConfig({ node, onUpdate }: { node: Node; onUpdate: (data: 
             onValueChange={(value) => onUpdate({ similarityThreshold: value[0] })}
             className="mt-2"
           />
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="kb-fallback-text-search"
+            checked={node.data.fallbackTextSearch !== false}  // Default to true
+            onCheckedChange={(checked) => onUpdate({ fallbackTextSearch: checked })}
+          />
+          <Label htmlFor="kb-fallback-text-search">Enable Text Search Fallback</Label>
         </div>
       </CardContent>
     </Card>

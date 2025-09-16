@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 def generate_default_workflow(workspace_id: str, collection_name: str) -> dict:
-    """Generate default workflow JSON for new workspace"""
+    """Generate default workflow JSON for new workspace with Gemini configuration"""
     return {
         "nodes": [
             {
@@ -22,7 +22,9 @@ def generate_default_workflow(workspace_id: str, collection_name: str) -> dict:
                 "type": "user-query",
                 "data": {
                     "label": "User Query",
-                    "description": "Entry point for user questions"
+                    "description": "Entry point for user questions",
+                    "placeholder": "Ask a question about your documents...",
+                    "query": ""
                 },
                 "position": {"x": 100, "y": 200}
             },
@@ -34,20 +36,28 @@ def generate_default_workflow(workspace_id: str, collection_name: str) -> dict:
                     "description": "Document knowledge retrieval",
                     "chroma_collection": collection_name,
                     "workspace_id": workspace_id,
-                    "top_k": 5
+                    "embeddingProvider": "gemini",
+                    "embeddingModel": "models/embedding-001",
+                    "topK": 5,
+                    "chunkSize": 800,
+                    "chunkOverlap": 100,
+                    "similarityThreshold": 0.7,
+                    "fallbackTextSearch": True
                 },
                 "position": {"x": 350, "y": 200}
             },
             {
                 "id": "llm-engine-1",
-                "type": "llm-engine",
+                "type": "llm",
                 "data": {
                     "label": "LLM Engine",
                     "description": "AI reasoning and response generation",
+                    "provider": "gemini",
                     "model": "gemini-2.0-flash-exp",
-                    "provider": "google",
                     "temperature": 0.7,
-                    "max_tokens": 1000
+                    "maxTokens": 1000,
+                    "prompt": "You are a helpful AI assistant that answers questions based on the provided context from documents. Use the context to provide accurate and helpful responses.",
+                    "stream": False
                 },
                 "position": {"x": 600, "y": 200}
             },
@@ -56,7 +66,10 @@ def generate_default_workflow(workspace_id: str, collection_name: str) -> dict:
                 "type": "output",
                 "data": {
                     "label": "Chat Output",
-                    "description": "Final response to user"
+                    "description": "Final response to user",
+                    "format": "text",
+                    "template": "",
+                    "saveToFile": False
                 },
                 "position": {"x": 850, "y": 200}
             }
